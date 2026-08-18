@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#1F3864" />
+<title>RPM Planner</title>
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%231F3864'/%3E%3Ctext x='50' y='62' font-size='40' font-family='Arial' fill='white' text-anchor='middle'%3ERPM%3C/text%3E%3C/svg%3E" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%231F3864'/%3E%3Ctext x='50' y='62' font-size='40' font-family='Arial' fill='white' text-anchor='middle'%3ERPM%3C/text%3E%3C/svg%3E" />
+<link rel="manifest" href="data:application/manifest+json,%7B%22name%22%3A%22RPM%20Planner%22%2C%22short_name%22%3A%22RPM%22%2C%22display%22%3A%22standalone%22%2C%22start_url%22%3A%22.%22%2C%22background_color%22%3A%22%23F5F6F8%22%2C%22theme_color%22%3A%22%231F3864%22%7D" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap');
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; padding: 0; background: #F5F6F8; }
+  body { font-family: 'Inter', -apple-system, sans-serif; }
+  input, textarea, select, button { font-family: 'Inter', sans-serif; }
+  input:focus, textarea:focus, select:focus { outline: none; border-color: #1F3864 !important; }
+  #root { min-height: 100vh; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+const h = React.createElement;
+const { useState, useEffect, useRef, useCallback } = React;
+
+const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const PALETTE = ["#1F3864", "#3D6EA5", "#5B8A72", "#B08D57", "#7C6A9E", "#B0575B"];
+const STORAGE_KEY = "rpm-planner-data-v1";
+const uid = () => Math.random().toString(36).slice(2, 10);
+const clone = (o) => JSON.parse(JSON.stringify(o));
+
+function todayAbbr() {
+  const jsDay = new Date().getDay();
+  const idx = (jsDay + 6) % 7;
+  return DAYS[idx];
+}
+
+function seedData() {
+  return {
+    categories: [
+      {
+        id: uid(), name: "ERO / Bournemouth", color: PALETTE[0],
+        result: "Fully handed over at Goodwood, ready to start Bournemouth.",
+        purpose: "A clean exit protects my reputation and removes distraction going into the new rotation.",
+        items: [
+          { id: uid(), text: "Finalise handover notes for Fire Watch schedules", star: true, done: false, days: { Mon: true, Tue: true } },
+          { id: uid(), text: "Brief Mike, Ashley and Lewis on outstanding tasks", star: false, done: false, days: {} },
+          { id: uid(), text: "Confirm last working day and return of kit with Jim", star: true, done: false, days: { Wed: true } },
+          { id: uid(), text: "Chase Bournemouth start date and induction details", star: true, done: false, days: { Fri: true } },
+        ],
+      },
+      {
+        id: uid(), name: "Fort Restoration", color: PALETTE[2],
+        result: "Card payment solution live and tested before the next event.",
+        purpose: "Losing cash-only sales costs the charity money it needs for restoration work.",
+        items: [
+          { id: uid(), text: "Compare SumUp, Zettle and Square fees", star: true, done: false, days: { Mon: true } },
+          { id: uid(), text: "Get trustee sign-off on chosen provider", star: true, done: false, days: { Wed: true } },
+          { id: uid(), text: "Order card reader and test", star: true, done: false, days: { Thu: true } },
+        ],
+      },
+    ],
+    capture: [],
+    routine: [],
+  };
+}
+
+const storage = {
+  get: async (key) => {
+    const v = localStorage.getItem(key);
+    return v === null ? null : { key, value: v };
+  },
+  set: async (key, value) => {
+    localStorage.setItem(key, value);
+    return { key, value };
+  },
+};
+
+function Icon({ path, size = 20, color = "#1C2430", fill = "none", strokeWidth = 2 }) {
+  return h("svg", { width: size, height: size, viewBox: "0 0 24 24", fill, stroke: color, strokeWidth, strokeLinecap: "round", strokeLinejoin: "round" },
+    h("path", { d: path }));
+}
+const PATHS = {
+  star: "M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z",
+  plus: "M12 5v14M5 12h14",
+  trash: "M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0-1 14a2 2 0 01-2 2H7a2 2 0 01-2-2L4 6h16z",
+  chevronDown: "M6 9l6 6 6-6",
+  chevronRight: "M9 6l6 6-6 6",
+  circle: "M12 22a10 10 0 100-20 10 10 0 000 20z",
+  checkCircle: "M22 11.08V12a10 10 0 11-5.93-9.14M22 4L12 14.01l-3-3",
+  x: "M18 6L6 18M6 6l12 12",
+  arrowRight: "M5 12h14M12 5l7 7-7 7",
+  calendarCheck: "M8 2v4M16 2v4M3 10h18M3 6a2 2 0 012-2h14a2 2 0 012 2v13a2 2 0 01-2 2H5a2 2 0 01-2-2V6zM9 16l2 2 4-4",
+  layoutGrid: "M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z",
+  inbox: "M22 12h-6l-2 3h-4l-2-3H2M5.45 5.11L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.45-6.89A2 2 0 0016.76 4H7.24a2 2 0 00-1.79 1.11z",
+  listChecks: "M3 7l2 2 4-4M3 15l2 2 4-4M11 6h10M11 14h10",
+};
+
+function useDebouncedSave(data, ready) {
+  const timer = useRef(null);
+  const [status, setStatus] = useState("saved");
+  useEffect(() => {
+    if (!ready) return;
+    setStatus("saving");
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(async () => {
+      try {
+        await storage.set(STORAGE_KEY, JSON.stringify(data));
+        setStatus("saved");
+      } catch (e) {
+        setStatus("error");
+      }
+    }, 400);
+    return () => timer.current && clearTimeout(timer.current);
+  }, [data, ready]);
+  return status;
+}
+
+function App() {
+  const [data, setData] = useState(null);
+  const [ready, setReady] = useState(false);
+  const [tab, setTab] = useState("today");
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await storage.get(STORAGE_KEY);
+        setData(res && res.value ? JSON.parse(res.value) : seedData());
+      } catch (e) {
+        setData(seedData());
+      }
+      setReady(true);
+    })();
+  }, []);
+
+  const saveStatus = useDebouncedSave(data, ready);
+
+  const update = useCallback((fn) => {
+    setData((prev) => {
+      const next = clone(prev);
+      fn(next);
+      return next;
+    });
+  }, []);
+
+  if (!ready || !data) {
+    return h("div", { style: S.loadingScreen }, h("div", { style: S.loadingText }, "Loading your plan…"));
+  }
+
+  return h("div", { style: S.app },
+    h(Header, { saveStatus }),
+    h("div", { style: S.content },
+      tab === "today" && h(TodayTab, { data, update }),
+      tab === "weekly" && h(WeeklyTab, { data, update }),
+      tab === "capture" && h(ListTab, { data, update, listKey: "capture", hint: "Anything on your mind — task, idea, reminder. Sort it into a category during your weekly reset.", allowMove: true }),
+      tab === "routine" && h(ListTab, { data, update, listKey: "routine", hint: "Admin and chores with no real Result behind them. Just do them." })
+    ),
+    h(TabBar, { tab, setTab })
+  );
+}
+
+function Header({ saveStatus }) {
+  const date = new Date();
+  const dateStr = date.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
+  const dotColor = saveStatus === "saved" ? "#5B8A72" : saveStatus === "error" ? "#B0575B" : "#B08D57";
+  return h("div", { style: S.header },
+    h("div", null,
+      h("div", { style: S.headerEyebrow }, "RPM PLANNER"),
+      h("div", { style: S.headerDate }, dateStr)
+    ),
+    h("div", { style: { ...S.saveDot, background: dotColor } })
+  );
+}
+
+function TabBar({ tab, setTab }) {
+  const tabs = [
+    { id: "today", label: "Today", path: PATHS.calendarCheck },
+    { id: "weekly", label: "Weekly", path: PATHS.layoutGrid },
+    { id: "capture", label: "Capture", path: PATHS.inbox },
+    { id: "routine", label: "Routine", path: PATHS.listChecks },
+  ];
+  return h("div", { style: S.tabBar },
+    tabs.map(({ id, label, path }) => {
+      const active = tab === id;
+      return h("button", { key: id, onClick: () => setTab(id), style: S.tabButton },
+        h(Icon, { path, size: 20, color: active ? "#1F3864" : "#9AA3AF", strokeWidth: active ? 2.4 : 2 }),
+        h("span", { style: { ...S.tabLabel, color: active ? "#1F3864" : "#9AA3AF", fontWeight: active ? 700 : 500 } }, label)
+      );
+    })
+  );
+}
+
+function TodayTab({ data, update }) {
+  const abbr = todayAbbr();
+  const dueCategories = data.categories
+    .map((c) => ({ ...c, items: c.items.filter((it) => it.days && it.days[abbr] && !it.done) }))
+    .filter((c) => c.items.length > 0);
+  const routineOpen = data.routine.filter((r) => !r.done).slice(0, 2);
+
+  const toggleItemDone = (catId, itemId) => update((d) => {
+    const cat = d.categories.find((c) => c.id === catId);
+    const item = cat.items.find((i) => i.id === itemId);
+    item.done = !item.done;
+  });
+  const toggleRoutine = (id) => update((d) => {
+    const r = d.routine.find((x) => x.id === id);
+    r.done = !r.done;
+  });
+
+  return h("div", { style: S.section },
+    dueCategories.length === 0 && h(EmptyState, {
+      pathKey: "calendarCheck", title: "Nothing scheduled for today",
+      body: "Go to Weekly and assign MAP items to today's day pill."
+    }),
+    dueCategories.map((cat) => h("div", { key: cat.id, style: S.card },
+      h("div", { style: S.cardHeaderRow },
+        h("div", { style: { ...S.colorDot, background: cat.color } }),
+        h("div", { style: S.cardTitle }, cat.name)
+      ),
+      cat.items.map((it) => h(ItemRow, { key: it.id, item: it, onToggle: () => toggleItemDone(cat.id, it.id) }))
+    )),
+    routineOpen.length > 0 && h("div", { style: S.card },
+      h("div", { style: S.cardHeaderRow },
+        h("div", { style: { ...S.colorDot, background: "#9AA3AF" } }),
+        h("div", { style: S.cardTitle }, "From Routine")
+      ),
+      routineOpen.map((r) => h(ItemRow, { key: r.id, item: r, onToggle: () => toggleRoutine(r.id), plain: true }))
+    )
+  );
+}
+
+function ItemRow({ item, onToggle, plain }) {
+  return h("div", { style: S.itemRow, onClick: onToggle },
+    item.done
+      ? h(Icon, { path: PATHS.checkCircle, size: 20, color: "#5B8A72", strokeWidth: 2.2 })
+      : h(Icon, { path: PATHS.circle, size: 20, color: "#C4CAD3", strokeWidth: 2 }),
+    h("span", { style: { ...S.itemText, textDecoration: item.done ? "line-through" : "none", color: item.done ? "#9AA3AF" : "#1C2430" } }, item.text),
+    !plain && item.star && h(Icon, { path: PATHS.star, size: 16, color: "#B08D57", fill: "#B08D57", strokeWidth: 1.5 })
+  );
+}
+
+function EmptyState({ pathKey, title, body }) {
+  return h("div", { style: S.emptyState },
+    h(Icon, { path: PATHS[pathKey], size: 28, color: "#9AA3AF" }),
+    h("div", { style: S.emptyTitle }, title),
+    h("div", { style: S.emptyBody }, body)
+  );
+}
+
+function WeeklyTab({ data, update }) {
+  const [expanded, setExpanded] = useState(() => new Set(data.categories.map((c) => c.id)));
+  const [newCatName, setNewCatName] = useState("");
+  const [addingCat, setAddingCat] = useState(false);
+
+  const toggleExpand = (id) => setExpanded((prev) => {
+    const next = new Set(prev);
+    next.has(id) ? next.delete(id) : next.add(id);
+    return next;
+  });
+
+  const addCategory = () => {
+    const name = newCatName.trim();
+    if (!name) return;
+    update((d) => {
+      d.categories.push({ id: uid(), name, color: PALETTE[d.categories.length % PALETTE.length], result: "", purpose: "", items: [] });
+    });
+    setNewCatName("");
+    setAddingCat(false);
+  };
+
+  const deleteCategory = (id) => update((d) => { d.categories = d.categories.filter((c) => c.id !== id); });
+
+  return h("div", { style: S.section },
+    data.categories.map((cat) => h(CategoryCard, {
+      key: cat.id, cat, expanded: expanded.has(cat.id), onToggleExpand: () => toggleExpand(cat.id),
+      update, onDelete: () => deleteCategory(cat.id)
+    })),
+    addingCat
+      ? h("div", { style: S.card },
+          h("input", {
+            autoFocus: true, style: S.textInput, placeholder: "Category name (e.g. Investing / Finances)",
+            value: newCatName, onChange: (e) => setNewCatName(e.target.value),
+            onKeyDown: (e) => e.key === "Enter" && addCategory()
+          }),
+          h("div", { style: S.rowButtons },
+            h("button", { style: S.primaryBtn, onClick: addCategory }, "Add category"),
+            h("button", { style: S.ghostBtn, onClick: () => setAddingCat(false) }, "Cancel")
+          )
+        )
+      : h("button", { style: S.addCategoryBtn, onClick: () => setAddingCat(true) },
+          h(Icon, { path: PATHS.plus, size: 18, color: "#1F3864" }),
+          h("span", null, "Add category")
+        )
+  );
+}
+
+function CategoryCard({ cat, expanded, onToggleExpand, update, onDelete }) {
+  const addItem = () => update((d) => {
+    const c = d.categories.find((x) => x.id === cat.id);
+    c.items.push({ id: uid(), text: "", star: false, done: false, days: {} });
+  });
+  const setField = (field, value) => update((d) => {
+    const c = d.categories.find((x) => x.id === cat.id);
+    c[field] = value;
+  });
+  const updateItem = (itemId, fn) => update((d) => {
+    const c = d.categories.find((x) => x.id === cat.id);
+    const it = c.items.find((x) => x.id === itemId);
+    fn(it);
+  });
+  const deleteItem = (itemId) => update((d) => {
+    const c = d.categories.find((x) => x.id === cat.id);
+    c.items = c.items.filter((x) => x.id !== itemId);
+  });
+
+  return h("div", { style: S.card },
+    h("div", { style: S.cardHeaderRow, onClick: onToggleExpand },
+      h("div", { style: { ...S.colorDot, background: cat.color } }),
+      h("div", { style: S.cardTitle }, cat.name),
+      h(Icon, { path: expanded ? PATHS.chevronDown : PATHS.chevronRight, size: 18, color: "#9AA3AF" })
+    ),
+    expanded && h("div", { style: { marginTop: 10 } },
+      h("label", { style: S.fieldLabel }, "RESULT"),
+      h("textarea", { style: S.textArea, placeholder: "The specific outcome you want, not the task", defaultValue: cat.result, onBlur: (e) => setField("result", e.target.value) }),
+      h("label", { style: S.fieldLabel }, "PURPOSE"),
+      h("textarea", { style: S.textArea, placeholder: "Why it matters", defaultValue: cat.purpose, onBlur: (e) => setField("purpose", e.target.value) }),
+      h("label", { style: S.fieldLabel }, "MAP"),
+      cat.items.map((it) => h(MapItemEditor, { key: it.id, item: it, update: (fn) => updateItem(it.id, fn), onDelete: () => deleteItem(it.id) })),
+      h("button", { style: S.addItemBtn, onClick: addItem }, h(Icon, { path: PATHS.plus, size: 15, color: "#1F3864" }), " Add MAP item"),
+      h("button", { style: S.deleteCategoryBtn, onClick: onDelete }, h(Icon, { path: PATHS.trash, size: 13, color: "#C4CAD3" }), " Delete category")
+    )
+  );
+}
+
+function MapItemEditor({ item, update, onDelete }) {
+  return h("div", { style: S.mapItemBlock },
+    h("div", { style: S.mapItemTopRow },
+      h("button", { onClick: () => update((it) => (it.star = !it.star)), style: S.iconBtn },
+        h(Icon, { path: PATHS.star, size: 17, color: item.star ? "#B08D57" : "#C4CAD3", fill: item.star ? "#B08D57" : "none", strokeWidth: 1.5 })),
+      h("input", { style: S.mapItemInput, placeholder: "Describe the action…", defaultValue: item.text, onBlur: (e) => update((it) => (it.text = e.target.value)) }),
+      h("button", { onClick: onDelete, style: S.iconBtn }, h(Icon, { path: PATHS.x, size: 16, color: "#C4CAD3" }))
+    ),
+    h("div", { style: S.dayPillRow },
+      DAYS.map((d) => {
+        const active = !!(item.days && item.days[d]);
+        return h("button", {
+          key: d,
+          onClick: () => update((it) => { it.days = { ...it.days, [d]: !(it.days && it.days[d]) }; }),
+          style: { ...S.dayPill, background: active ? "#1F3864" : "#F2F4F7", color: active ? "#FFFFFF" : "#9AA3AF" }
+        }, d[0]);
+      })
+    )
+  );
+}
+
+function ListTab({ data, update, listKey, hint, allowMove }) {
+  const [text, setText] = useState("");
+  const list = data[listKey];
+
+  const addEntry = () => {
+    const t = text.trim();
+    if (!t) return;
+    update((d) => { d[listKey].push({ id: uid(), text: t, done: false }); });
+    setText("");
+  };
+  const toggle = (id) => update((d) => {
+    const it = d[listKey].find((x) => x.id === id);
+    it.done = !it.done;
+  });
+  const remove = (id) => update((d) => { d[listKey] = d[listKey].filter((x) => x.id !== id); });
+  const moveToCategory = (id, catId) => {
+    if (!catId) return;
+    update((d) => {
+      const entry = d[listKey].find((x) => x.id === id);
+      const cat = d.categories.find((c) => c.id === catId);
+      if (entry && cat) {
+        cat.items.push({ id: uid(), text: entry.text, star: false, done: false, days: {} });
+        d[listKey] = d[listKey].filter((x) => x.id !== id);
+      }
+    });
+  };
+
+  return h("div", { style: S.section },
+    h("div", { style: S.listHint }, hint),
+    h("div", { style: S.card },
+      h("div", { style: S.rowButtons },
+        h("input", {
+          style: { ...S.textInput, flex: 1 }, placeholder: "Add an item…", value: text,
+          onChange: (e) => setText(e.target.value), onKeyDown: (e) => e.key === "Enter" && addEntry()
+        }),
+        h("button", { style: S.primaryBtnSmall, onClick: addEntry }, h(Icon, { path: PATHS.plus, size: 18, color: "#fff" }))
+      )
+    ),
+    list.length === 0 && h(EmptyState, { pathKey: "inbox", title: "Nothing here", body: "Add anything on your mind above." }),
+    list.map((entry) => h("div", { key: entry.id, style: S.captureCard },
+      h("div", { style: S.itemRow, onClick: () => toggle(entry.id) },
+        entry.done
+          ? h(Icon, { path: PATHS.checkCircle, size: 20, color: "#5B8A72", strokeWidth: 2.2 })
+          : h(Icon, { path: PATHS.circle, size: 20, color: "#C4CAD3", strokeWidth: 2 }),
+        h("span", { style: { ...S.itemText, textDecoration: entry.done ? "line-through" : "none", color: entry.done ? "#9AA3AF" : "#1C2430" } }, entry.text),
+        h("button", { onClick: (e) => { e.stopPropagation(); remove(entry.id); }, style: S.iconBtn }, h(Icon, { path: PATHS.trash, size: 15, color: "#C4CAD3" }))
+      ),
+      allowMove && data.categories.length > 0 && h("div", { style: S.moveRow },
+        h(Icon, { path: PATHS.arrowRight, size: 13, color: "#9AA3AF" }),
+        h("select", {
+          style: S.moveSelect, defaultValue: "", onChange: (e) => moveToCategory(entry.id, e.target.value)
+        },
+          h("option", { value: "", disabled: true }, "Move to category…"),
+          data.categories.map((c) => h("option", { key: c.id, value: c.id }, c.name))
+        )
+      )
+    ))
+  );
+}
+
+const S = {
+  app: { fontFamily: "'Inter', -apple-system, sans-serif", background: "#F5F6F8", minHeight: "100vh", maxWidth: 480, margin: "0 auto", display: "flex", flexDirection: "column", color: "#1C2430" },
+  loadingScreen: { minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#F5F6F8", color: "#9AA3AF" },
+  loadingText: { fontSize: 14 },
+  header: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 20px 14px", background: "#FFFFFF", borderBottom: "1px solid #E4E7EC", position: "sticky", top: 0, zIndex: 10 },
+  headerEyebrow: { fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 600, color: "#9AA3AF", letterSpacing: "0.12em" },
+  headerDate: { fontSize: 18, fontWeight: 700, color: "#1F3864", marginTop: 2 },
+  saveDot: { width: 8, height: 8, borderRadius: 999 },
+  content: { flex: 1, overflowY: "auto", padding: "16px 16px 90px" },
+  section: { display: "flex", flexDirection: "column", gap: 12 },
+  card: { background: "#FFFFFF", border: "1px solid #E4E7EC", borderRadius: 14, padding: 14 },
+  cardHeaderRow: { display: "flex", alignItems: "center", gap: 10, cursor: "pointer" },
+  colorDot: { width: 10, height: 10, borderRadius: 999, flexShrink: 0 },
+  cardTitle: { fontSize: 15, fontWeight: 700, color: "#1C2430", flex: 1 },
+  itemRow: { display: "flex", alignItems: "center", gap: 10, padding: "9px 2px", cursor: "pointer", borderBottom: "1px solid #F2F4F7" },
+  itemText: { fontSize: 14, flex: 1, lineHeight: 1.4 },
+  emptyState: { display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: 8, padding: "40px 20px", color: "#9AA3AF" },
+  emptyTitle: { fontSize: 15, fontWeight: 700, color: "#4B5563" },
+  emptyBody: { fontSize: 13, maxWidth: 260 },
+  fieldLabel: { fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 700, color: "#9AA3AF", letterSpacing: "0.08em", display: "block", marginBottom: 4, marginTop: 10 },
+  textArea: { width: "100%", border: "1px solid #E4E7EC", borderRadius: 8, padding: "8px 10px", fontSize: 13.5, resize: "vertical", minHeight: 44, background: "#FAFBFC", color: "#1C2430" },
+  textInput: { width: "100%", border: "1px solid #E4E7EC", borderRadius: 8, padding: "10px 12px", fontSize: 14, background: "#FAFBFC", color: "#1C2430" },
+  mapItemBlock: { padding: "8px 0", borderBottom: "1px solid #F2F4F7" },
+  mapItemTopRow: { display: "flex", alignItems: "center", gap: 6 },
+  mapItemInput: { flex: 1, border: "none", borderBottom: "1px solid transparent", background: "transparent", fontSize: 13.5, padding: "4px 2px", color: "#1C2430" },
+  iconBtn: { background: "none", border: "none", padding: 4, cursor: "pointer", display: "flex", alignItems: "center" },
+  dayPillRow: { display: "flex", gap: 5, marginTop: 6, marginLeft: 25 },
+  dayPill: { width: 24, height: 24, borderRadius: 999, border: "none", fontSize: 10.5, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace", cursor: "pointer" },
+  addItemBtn: { display: "flex", alignItems: "center", gap: 6, background: "none", border: "none", color: "#1F3864", fontSize: 13, fontWeight: 600, padding: "8px 2px", cursor: "pointer" },
+  deleteCategoryBtn: { display: "flex", alignItems: "center", gap: 5, background: "none", border: "none", color: "#C4CAD3", fontSize: 11.5, padding: "6px 2px", cursor: "pointer", marginTop: 4 },
+  addCategoryBtn: { display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: "#FFFFFF", border: "1.5px dashed #C4CAD3", borderRadius: 14, padding: 14, color: "#1F3864", fontSize: 14, fontWeight: 700, cursor: "pointer" },
+  rowButtons: { display: "flex", gap: 8, marginTop: 8, alignItems: "center" },
+  primaryBtn: { background: "#1F3864", color: "#fff", border: "none", borderRadius: 8, padding: "10px 16px", fontSize: 13.5, fontWeight: 700, cursor: "pointer" },
+  primaryBtnSmall: { background: "#1F3864", border: "none", borderRadius: 8, width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 },
+  ghostBtn: { background: "none", border: "none", color: "#9AA3AF", fontSize: 13.5, fontWeight: 600, cursor: "pointer" },
+  listHint: { fontSize: 12.5, color: "#9AA3AF", lineHeight: 1.5, padding: "0 4px" },
+  captureCard: { background: "#FFFFFF", border: "1px solid #E4E7EC", borderRadius: 12, padding: "4px 12px" },
+  moveRow: { display: "flex", alignItems: "center", gap: 6, paddingBottom: 8, paddingLeft: 30 },
+  moveSelect: { border: "none", background: "transparent", fontSize: 12, color: "#1F3864", fontWeight: 600, cursor: "pointer" },
+  tabBar: { display: "flex", background: "#FFFFFF", borderTop: "1px solid #E4E7EC", position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)", width: "100%", maxWidth: 480, padding: "8px 0 max(8px, env(safe-area-inset-bottom))" },
+  tabButton: { flex: 1, background: "none", border: "none", display: "flex", flexDirection: "column", alignItems: "center", gap: 3, padding: "4px 0", cursor: "pointer" },
+  tabLabel: { fontSize: 10.5 },
+};
+
+ReactDOM.createRoot(document.getElementById("root")).render(h(App));
+</script>
+</body>
+</html>
