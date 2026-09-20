@@ -260,7 +260,7 @@ h(Header, { saveStatus, cloudStatus, onSyncClick: () => setShowSync(true) }),
 h("div", { style: S.content },
 tab === "today" && h(TodayTab, { data, update }),
 tab === "weekly" && h(WeeklyTab, { data, update }),
-tab === "capture" && h(ListTab, { data, update, listKey: "capture", hint: "Anything on your mind — task, idea, reminder. Sort it into a category during your weekly reset.", allowMove: true }),
+tab === "capture" && h(ListTab, { data, update, listKey: "capture", hint: "A quick holding pen — task, idea, reminder. Get it out of your head now. Anything still here at your next Weekly review should move into a category, even if it's not happening yet.", allowMove: true }),
 tab === "routine" && h(RoutineTab, { data, update })
 ),
 h(TabBar, { tab, setTab }),
@@ -580,6 +580,10 @@ setAddingCat(false);
 const deleteCategory = (id) => update((d) => { d.categories = d.categories.filter((c) => c.id !== id); });
 
 return h("div", { style: S.section },
+h("div", { style: S.rpmIntroCard },
+h("div", { style: S.rpmIntroTitle }, "RPM — Rapid Planning Method"),
+h("div", { style: S.rpmIntroBody }, "For each area of your life: get clear on the ", h("b", null, "Result"), " you want and the ", h("b", null, "Purpose"), " behind it, then build your ", h("b", null, "MAP"), " (Massive Action Plan) — the actions that actually get you there.")
+),
 data.categories.map((cat) => h(CategoryCard, {
 key: cat.id, cat, expanded: expanded.has(cat.id), onToggleExpand: () => toggleExpand(cat.id),
 update, onDelete: () => deleteCategory(cat.id)
@@ -629,11 +633,17 @@ h("div", { style: S.cardTitle }, cat.name),
 h(Icon, { path: expanded ? PATHS.chevronDown : PATHS.chevronRight, size: 18, color: "#9AA3AF" })
 ),
 expanded && h("div", { style: { marginTop: 10 } },
+
 h("label", { style: S.fieldLabel }, "RESULT"),
+h("div", { style: S.fieldHint }, "The specific outcome, not the task. Ask: what will actually be different when this is done?"),
 h("textarea", { style: S.textArea, placeholder: "The specific outcome you want, not the task", defaultValue: cat.result, onBlur: (e) => setField("result", e.target.value) }),
+
 h("label", { style: S.fieldLabel }, "PURPOSE"),
+h("div", { style: S.fieldHint }, "Why it actually matters to you. Ask: what does this get me, or protect me from?"),
 h("textarea", { style: S.textArea, placeholder: "Why it matters", defaultValue: cat.purpose, onBlur: (e) => setField("purpose", e.target.value) }),
-h("label", { style: S.fieldLabel }, "MAP"),
+
+h("label", { style: S.fieldLabel }, "MAP — MASSIVE ACTION PLAN"),
+h("div", { style: S.fieldHint }, "The concrete actions that turn your Purpose into your Result."),
 cat.items.map((it) => h(MapItemEditor, { key: it.id, item: it, update: (fn) => updateItem(it.id, fn), onDelete: () => deleteItem(it.id) })),
 h("button", { style: S.addItemBtn, onClick: addItem }, h(Icon, { path: PATHS.plus, size: 15, color: "#1F3864" }), " Add MAP item"),
 h("button", { style: S.deleteCategoryBtn, onClick: onDelete }, h(Icon, { path: PATHS.trash, size: 13, color: "#C4CAD3" }), " Delete category")
@@ -825,6 +835,10 @@ emptyState: { display: "flex", flexDirection: "column", alignItems: "center", te
 emptyTitle: { fontSize: 15, fontWeight: 700, color: "#4B5563" },
 emptyBody: { fontSize: 13, maxWidth: 260 },
 fieldLabel: { fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 700, color: "#9AA3AF", letterSpacing: "0.08em", display: "block", marginBottom: 4, marginTop: 10 },
+fieldHint: { fontSize: 11.5, color: "#9AA3AF", lineHeight: 1.4, marginBottom: 6 },
+rpmIntroCard: { background: "#EEF2F8", border: "1px solid #D7E0EC", borderRadius: 14, padding: "14px 16px" },
+rpmIntroTitle: { fontSize: 13.5, fontWeight: 800, color: "#1F3864", marginBottom: 4 },
+rpmIntroBody: { fontSize: 12.5, color: "#3D4A5F", lineHeight: 1.5 },
 textArea: { width: "100%", border: "1px solid #E4E7EC", borderRadius: 8, padding: "8px 10px", fontSize: 13.5, resize: "vertical", minHeight: 44, background: "#FAFBFC", color: "#1C2430" },
 textInput: { width: "100%", border: "1px solid #E4E7EC", borderRadius: 8, padding: "10px 12px", fontSize: 14, background: "#FAFBFC", color: "#1C2430" },
 mapItemBlock: { padding: "8px 0", borderBottom: "1px solid #F2F4F7" },
