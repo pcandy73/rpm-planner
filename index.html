@@ -488,10 +488,10 @@ h("div", { style: S.modalHint }, "Always works, no internet service required. Co
 h("div", { style: S.rowButtons },
 h("button", { style: S.ghostBtnDark, onClick: copyBackup }, "Copy backup")
 ),
-backupText && h("textarea", { style: { ...S.textArea, minHeight: 80, marginTop: 8, fontSize: 11 }, readOnly: true, value: backupText, onClick: (e) => e.target.select() }),
+backupText && h("textarea", { style: { ...S.textArea, minHeight: 80, marginTop: 8, fontSize: 11, resize: "vertical", overflow: "auto" }, readOnly: true, value: backupText, onClick: (e) => e.target.select() }),
 h("div", { style: { height: 14 } }),
 h("textarea", {
-style: { ...S.textArea, minHeight: 70 }, placeholder: "Paste a backup here to restore it…",
+style: { ...S.textArea, minHeight: 70, resize: "vertical", overflow: "auto" }, placeholder: "Paste a backup here to restore it…",
 value: restoreText, onChange: (e) => setRestoreText(e.target.value)
 }),
 h("button", { style: S.ghostBtnDark, onClick: restoreBackup, disabled: !restoreText.trim() }, "Restore from pasted backup")
@@ -607,6 +607,8 @@ h("span", null, "Add category")
 );
 }
 
+const autoSizeStatic = (el) => { if (el) { el.style.height = "auto"; el.style.height = el.scrollHeight + "px"; } };
+
 function CategoryCard({ cat, expanded, onToggleExpand, update, onDelete }) {
 const addItem = () => update((d) => {
 const c = d.categories.find((x) => x.id === cat.id);
@@ -636,27 +638,33 @@ expanded && h("div", { style: { marginTop: 10 } },
 
 h("label", { style: S.fieldLabel }, "RESULT"),
 h("div", { style: S.fieldHint }, "The specific outcome, not the task. Ask: what will actually be different when this is done?"),
-h("textarea", { style: S.textArea, placeholder: "The specific outcome you want, not the task", defaultValue: cat.result, onBlur: (e) => setField("result", e.target.value) }),
+h("textarea", { style: S.textArea, placeholder: "The specific outcome you want, not the task", defaultValue: cat.result, ref: autoSizeStatic, onInput: (e) => autoSizeStatic(e.target), onBlur: (e) => setField("result", e.target.value) }),
 
 h("label", { style: S.fieldLabel }, "PURPOSE"),
 h("div", { style: S.fieldHint }, "Why it actually matters to you. Ask: what does this get me, or protect me from?"),
-h("textarea", { style: S.textArea, placeholder: "Why it matters", defaultValue: cat.purpose, onBlur: (e) => setField("purpose", e.target.value) }),
+h("textarea", { style: S.textArea, placeholder: "Why it matters", defaultValue: cat.purpose, ref: autoSizeStatic, onInput: (e) => autoSizeStatic(e.target), onBlur: (e) => setField("purpose", e.target.value) }),
 
 h("label", { style: S.fieldLabel }, "MAP — MASSIVE ACTION PLAN"),
 h("div", { style: S.fieldHint }, "The concrete actions that turn your Purpose into your Result."),
-cat.items.map((it) => h(MapItemEditor, { key: it.id, item: it, update: (fn) => updateItem(it.id, fn), onDelete: () => deleteItem(it.id) })),
+cat.items.map((it) => h(MapItemEditor, { key: it.id, item: it, color: cat.color, update: (fn) => updateItem(it.id, fn), onDelete: () => deleteItem(it.id) })),
 h("button", { style: S.addItemBtn, onClick: addItem }, h(Icon, { path: PATHS.plus, size: 15, color: "#1F3864" }), " Add MAP item"),
 h("button", { style: S.deleteCategoryBtn, onClick: onDelete }, h(Icon, { path: PATHS.trash, size: 13, color: "#C4CAD3" }), " Delete category")
 )
 );
 }
 
-function MapItemEditor({ item, update, onDelete }) {
-return h("div", { style: S.mapItemBlock },
+function MapItemEditor({ item, update, onDelete, color }) {
+const autoSize = (el) => { if (el) { el.style.height = "auto"; el.style.height = el.scrollHeight + "px"; } };
+return h("div", { style: { ...S.mapItemBlock, borderLeft: "3px solid " + color, background: color + "14" } },
 h("div", { style: S.mapItemTopRow },
 h("button", { onClick: () => update((it) => (it.star = !it.star)), style: S.iconBtn },
 h(Icon, { path: PATHS.star, size: 17, color: item.star ? "#B08D57" : "#C4CAD3", fill: item.star ? "#B08D57" : "none", strokeWidth: 1.5 })),
-h("input", { style: S.mapItemInput, placeholder: "Describe the action…", defaultValue: item.text, onBlur: (e) => update((it) => (it.text = e.target.value)) }),
+h("textarea", {
+style: S.mapItemInput, placeholder: "Describe the action…", defaultValue: item.text, rows: 1,
+ref: autoSize,
+onInput: (e) => autoSize(e.target),
+onBlur: (e) => update((it) => (it.text = e.target.value))
+}),
 h("button", { onClick: onDelete, style: S.iconBtn }, h(Icon, { path: PATHS.x, size: 16, color: "#C4CAD3" }))
 ),
 h("div", { style: S.dayPillRow },
@@ -839,11 +847,11 @@ fieldHint: { fontSize: 11.5, color: "#9AA3AF", lineHeight: 1.4, marginBottom: 6 
 rpmIntroCard: { background: "#EEF2F8", border: "1px solid #D7E0EC", borderRadius: 14, padding: "14px 16px" },
 rpmIntroTitle: { fontSize: 13.5, fontWeight: 800, color: "#1F3864", marginBottom: 4 },
 rpmIntroBody: { fontSize: 12.5, color: "#3D4A5F", lineHeight: 1.5 },
-textArea: { width: "100%", border: "1px solid #E4E7EC", borderRadius: 8, padding: "8px 10px", fontSize: 13.5, resize: "vertical", minHeight: 44, background: "#FAFBFC", color: "#1C2430" },
+textArea: { width: "100%", border: "1px solid #E4E7EC", borderRadius: 8, padding: "8px 10px", fontSize: 13.5, resize: "none", overflow: "hidden", minHeight: 44, background: "#FAFBFC", color: "#1C2430", lineHeight: 1.4, fontFamily: "'Inter', sans-serif" },
 textInput: { width: "100%", border: "1px solid #E4E7EC", borderRadius: 8, padding: "10px 12px", fontSize: 14, background: "#FAFBFC", color: "#1C2430" },
-mapItemBlock: { padding: "8px 0", borderBottom: "1px solid #F2F4F7" },
-mapItemTopRow: { display: "flex", alignItems: "center", gap: 6 },
-mapItemInput: { flex: 1, border: "none", borderBottom: "1px solid transparent", background: "transparent", fontSize: 13.5, padding: "4px 2px", color: "#1C2430" },
+mapItemBlock: { padding: "8px 10px 8px 8px", marginBottom: 6, borderRadius: 6, borderBottom: "none" },
+mapItemTopRow: { display: "flex", alignItems: "flex-start", gap: 6 },
+mapItemInput: { flex: 1, border: "none", borderBottom: "1px solid transparent", background: "transparent", fontSize: 13.5, padding: "4px 2px", color: "#1C2430", resize: "none", overflow: "hidden", fontFamily: "'Inter', sans-serif", lineHeight: 1.4, minHeight: 22 },
 iconBtn: { background: "none", border: "none", padding: 4, cursor: "pointer", display: "flex", alignItems: "center" },
 dayPillRow: { display: "flex", gap: 5, marginTop: 6, marginLeft: 25 },
 dayPill: { width: 24, height: 24, borderRadius: 999, border: "none", fontSize: 10.5, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace", cursor: "pointer" },
