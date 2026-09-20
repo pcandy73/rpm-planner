@@ -261,7 +261,7 @@ h("div", { style: S.content },
 tab === "today" && h(TodayTab, { data, update }),
 tab === "weekly" && h(WeeklyTab, { data, update }),
 tab === "capture" && h(ListTab, { data, update, listKey: "capture", hint: "Anything on your mind — task, idea, reminder. Sort it into a category during your weekly reset.", allowMove: true }),
-tab === "routine" && h(ListTab, { data, update, listKey: "routine", hint: "Admin and chores with no real Result behind them. Just do them." })
+tab === "routine" && h(RoutineTab, { data, update })
 ),
 h(TabBar, { tab, setTab }),
 showSync && h(SyncModal, { data, setData, cloudStatus, setCloudStatus, onClose: () => setShowSync(false) })
@@ -662,6 +662,69 @@ style: { ...S.dayPill, background: active ? "#1F3864" : "#F2F4F7", color: active
 );
 }
 
+const ROUTINE_CATEGORIES = [
+{ id: "Home", label: "Home", color: PALETTE[3] },
+{ id: "Fort", label: "Fort", color: PALETTE[2] },
+{ id: "Work", label: "Work", color: PALETTE[0] },
+];
+
+function RoutineTab({ data, update }) {
+const [text, setText] = useState("");
+const [category, setCategory] = useState("Home");
+const list = data.routine;
+
+const addEntry = () => {
+const t = text.trim();
+if (!t) return;
+update((d) => { d.routine.push({ id: uid(), text: t, done: false, category }); });
+setText("");
+};
+
+const toggle = (id) => update((d) => {
+const it = d.routine.find((x) => x.id === id);
+it.done = !it.done;
+});
+const remove = (id) => update((d) => { d.routine = d.routine.filter((x) => x.id !== id); });
+
+return h("div", { style: S.section },
+h("div", { style: S.listHint }, "Admin and chores with no real Result behind them. Just do them."),
+h("div", { style: S.card },
+h("div", { style: S.categoryPillRow },
+ROUTINE_CATEGORIES.map((cat) => h("button", {
+key: cat.id,
+onClick: () => setCategory(cat.id),
+style: { ...S.categoryPill, background: category === cat.id ? cat.color : "#F2F4F7", color: category === cat.id ? "#FFFFFF" : "#9AA3AF" }
+}, cat.label))
+),
+h("div", { style: S.rowButtons },
+h("input", {
+style: { ...S.textInput, flex: 1 }, placeholder: "Add a " + category.toLowerCase() + " task…", value: text,
+onChange: (e) => setText(e.target.value), onKeyDown: (e) => e.key === "Enter" && addEntry()
+}),
+h("button", { style: S.primaryBtnSmall, onClick: addEntry }, h(Icon, { path: PATHS.plus, size: 18, color: "#fff" }))
+)
+),
+list.length === 0 && h(EmptyState, { pathKey: "listChecks", title: "Nothing here", body: "Add a routine task above and pick which category it belongs to." }),
+ROUTINE_CATEGORIES.map((cat) => {
+const items = list.filter((it) => (it.category || "Home") === cat.id);
+if (items.length === 0) return null;
+return h("div", { key: cat.id, style: S.card },
+h("div", { style: S.cardHeaderRow },
+h("div", { style: { ...S.colorDot, background: cat.color } }),
+h("div", { style: S.cardTitle }, cat.label)
+),
+items.map((entry) => h("div", { key: entry.id, style: S.itemRow, onClick: () => toggle(entry.id) },
+entry.done
+? h(Icon, { path: PATHS.checkCircle, size: 20, color: "#5B8A72", strokeWidth: 2.2 })
+: h(Icon, { path: PATHS.circle, size: 20, color: "#C4CAD3", strokeWidth: 2 }),
+h("span", { style: { ...S.itemText, textDecoration: entry.done ? "line-through" : "none", color: entry.done ? "#9AA3AF" : "#1C2430" } }, entry.text),
+h("button", { onClick: (e) => { e.stopPropagation(); remove(entry.id); }, style: S.iconBtn }, h(Icon, { path: PATHS.trash, size: 15, color: "#C4CAD3" }))
+))
+);
+})
+);
+}
+
 function ListTab({ data, update, listKey, hint, allowMove }) {
 const [text, setText] = useState("");
 const list = data[listKey];
@@ -770,6 +833,8 @@ mapItemInput: { flex: 1, border: "none", borderBottom: "1px solid transparent", 
 iconBtn: { background: "none", border: "none", padding: 4, cursor: "pointer", display: "flex", alignItems: "center" },
 dayPillRow: { display: "flex", gap: 5, marginTop: 6, marginLeft: 25 },
 dayPill: { width: 24, height: 24, borderRadius: 999, border: "none", fontSize: 10.5, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace", cursor: "pointer" },
+categoryPillRow: { display: "flex", gap: 6, marginBottom: 8 },
+categoryPill: { padding: "6px 14px", borderRadius: 999, border: "none", fontSize: 12.5, fontWeight: 700, cursor: "pointer" },
 addItemBtn: { display: "flex", alignItems: "center", gap: 6, background: "none", border: "none", color: "#1F3864", fontSize: 13, fontWeight: 600, padding: "8px 2px", cursor: "pointer" },
 deleteCategoryBtn: { display: "flex", alignItems: "center", gap: 5, background: "none", border: "none", color: "#C4CAD3", fontSize: 11.5, padding: "6px 2px", cursor: "pointer", marginTop: 4 },
 addCategoryBtn: { display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: "#FFFFFF", border: "1.5px dashed #C4CAD3", borderRadius: 14, padding: 14, color: "#1F3864", fontSize: 14, fontWeight: 700, cursor: "pointer" },
