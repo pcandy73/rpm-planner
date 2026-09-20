@@ -858,6 +858,10 @@ const toggle = (id) => update((d) => {
 const it = d[listKey].find((x) => x.id === id);
 it.done = !it.done;
 });
+const editText = (id, value) => update((d) => {
+const it = d[listKey].find((x) => x.id === id);
+it.text = value;
+});
 const remove = (id) => update((d) => { d[listKey] = d[listKey].filter((x) => x.id !== id); });
 
 const moveToCategory = (id, catId) => {
@@ -885,12 +889,20 @@ h("button", { style: S.primaryBtnSmall, onClick: addEntry }, h(Icon, { path: PAT
 ),
 list.length === 0 && h(EmptyState, { pathKey: "inbox", title: "Nothing here", body: "Add anything on your mind above." }),
 list.map((entry) => h("div", { key: entry.id, style: S.captureCard },
-h("div", { style: S.itemRow, onClick: () => toggle(entry.id) },
+h("div", { style: S.itemRow },
+h("button", { onClick: () => toggle(entry.id), style: S.iconBtn },
 entry.done
 ? h(Icon, { path: PATHS.checkCircle, size: 20, color: "#5B8A72", strokeWidth: 2.2 })
-: h(Icon, { path: PATHS.circle, size: 20, color: "#C4CAD3", strokeWidth: 2 }),
-h("span", { style: { ...S.itemText, textDecoration: entry.done ? "line-through" : "none", color: entry.done ? "#9AA3AF" : "#1C2430" } }, entry.text),
-h("button", { onClick: (e) => { e.stopPropagation(); remove(entry.id); }, style: S.iconBtn }, h(Icon, { path: PATHS.trash, size: 15, color: "#C4CAD3" }))
+: h(Icon, { path: PATHS.circle, size: 20, color: "#C4CAD3", strokeWidth: 2 })
+),
+h("textarea", {
+style: { ...S.mapItemInput, textDecoration: entry.done ? "line-through" : "none", color: entry.done ? "#9AA3AF" : "#1C2430" },
+defaultValue: entry.text, rows: 1,
+ref: (el) => { if (el) { el.style.height = "auto"; el.style.height = el.scrollHeight + "px"; } },
+onInput: (e) => { e.target.style.height = "auto"; e.target.style.height = e.target.scrollHeight + "px"; },
+onBlur: (e) => editText(entry.id, e.target.value)
+}),
+h("button", { onClick: () => remove(entry.id), style: S.iconBtn }, h(Icon, { path: PATHS.trash, size: 15, color: "#C4CAD3" }))
 ),
 allowMove && data.categories.length > 0 && h("div", { style: S.moveRow },
 h(Icon, { path: PATHS.arrowRight, size: 13, color: "#9AA3AF" }),
