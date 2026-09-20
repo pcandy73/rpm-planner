@@ -505,7 +505,7 @@ const abbr = todayAbbr();
 const dueCategories = data.categories
 .map((c) => ({ ...c, items: c.items.filter((it) => it.days && it.days[abbr] && !it.done) }))
 .filter((c) => c.items.length > 0);
-const routineOpen = data.routine.filter((r) => !r.done).slice(0, 2);
+const routineOpen = data.routine.filter((r) => !r.done);
 
 const toggleItemDone = (catId, itemId) => update((d) => {
 const cat = d.categories.find((c) => c.id === catId);
@@ -529,13 +529,17 @@ h("div", { style: S.cardTitle }, cat.name)
 ),
 cat.items.map((it) => h(ItemRow, { key: it.id, item: it, onToggle: () => toggleItemDone(cat.id, it.id) }))
 )),
-routineOpen.length > 0 && h("div", { style: S.card },
+routineOpen.length > 0 && ROUTINE_CATEGORIES.map((rc) => {
+const items = routineOpen.filter((r) => (r.category || "Home") === rc.id);
+if (items.length === 0) return null;
+return h("div", { key: rc.id, style: S.card },
 h("div", { style: S.cardHeaderRow },
-h("div", { style: { ...S.colorDot, background: "#9AA3AF" } }),
-h("div", { style: S.cardTitle }, "From Routine")
+h("div", { style: { ...S.colorDot, background: rc.color } }),
+h("div", { style: S.cardTitle }, "Routine — " + rc.label)
 ),
-routineOpen.map((r) => h(ItemRow, { key: r.id, item: r, onToggle: () => toggleRoutine(r.id), plain: true }))
-)
+items.map((r) => h(ItemRow, { key: r.id, item: r, onToggle: () => toggleRoutine(r.id), plain: true }))
+);
+})
 );
 }
 
