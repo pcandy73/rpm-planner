@@ -619,6 +619,25 @@ const setField = (field, value) => update((d) => {
 const c = d.categories.find((x) => x.id === cat.id);
 c[field] = value;
 });
+const setGoalField = (index, field, value) => update((d) => {
+const c = d.categories.find((x) => x.id === cat.id);
+if (!c.goals || c.goals.length === 0) {
+c.goals = [{ id: uid(), result: c.result || "", purpose: c.purpose || "" }];
+}
+c.goals[index][field] = value;
+});
+const addGoal = () => update((d) => {
+const c = d.categories.find((x) => x.id === cat.id);
+if (!c.goals || c.goals.length === 0) {
+c.goals = [{ id: uid(), result: c.result || "", purpose: c.purpose || "" }];
+}
+c.goals.push({ id: uid(), result: "", purpose: "" });
+});
+const deleteGoal = (index) => update((d) => {
+const c = d.categories.find((x) => x.id === cat.id);
+if (!c.goals) return;
+c.goals = c.goals.filter((_, i) => i !== index);
+});
 const updateItem = (itemId, fn) => update((d) => {
 const c = d.categories.find((x) => x.id === cat.id);
 const it = c.items.find((x) => x.id === itemId);
@@ -642,15 +661,23 @@ h(Icon, { path: expanded ? PATHS.chevronDown : PATHS.chevronRight, size: 18, col
 ),
 expanded && h("div", { style: { marginTop: 10 } },
 
+(cat.goals && cat.goals.length ? cat.goals : [{ id: null, result: cat.result || "", purpose: cat.purpose || "" }]).map((g, i, arr) =>
+h("div", { key: g.id || "goal-seed", style: S.goalBlock },
+arr.length > 1 && h("div", { style: S.goalHeaderRow },
+h("div", { style: S.goalNumber }, "GOAL " + (i + 1)),
+h("button", { onClick: () => deleteGoal(i), style: S.iconBtn }, h(Icon, { path: PATHS.trash, size: 13, color: "#C4CAD3" }))
+),
 h("label", { style: S.fieldLabel }, "RESULT"),
 h("div", { style: S.fieldHint }, "The specific outcome, not the task. Ask: what will actually be different when this is done?"),
-h("textarea", { style: S.textArea, placeholder: "The specific outcome you want, not the task", defaultValue: cat.result, ref: autoSizeStatic, onInput: (e) => autoSizeStatic(e.target), onBlur: (e) => setField("result", e.target.value) }),
-
+h("textarea", { style: S.textArea, placeholder: "The specific outcome you want, not the task", defaultValue: g.result, ref: autoSizeStatic, onInput: (e) => autoSizeStatic(e.target), onBlur: (e) => setGoalField(i, "result", e.target.value) }),
 h("label", { style: S.fieldLabel }, "PURPOSE"),
 h("div", { style: S.fieldHint }, "Why it actually matters to you. Ask: what does this get me, or protect me from?"),
-h("textarea", { style: S.textArea, placeholder: "Why it matters", defaultValue: cat.purpose, ref: autoSizeStatic, onInput: (e) => autoSizeStatic(e.target), onBlur: (e) => setField("purpose", e.target.value) }),
+h("textarea", { style: S.textArea, placeholder: "Why it matters", defaultValue: g.purpose, ref: autoSizeStatic, onInput: (e) => autoSizeStatic(e.target), onBlur: (e) => setGoalField(i, "purpose", e.target.value) })
+)
+),
+h("button", { style: S.addItemBtn, onClick: addGoal }, h(Icon, { path: PATHS.plus, size: 15, color: "#1F3864" }), " Add another Result & Purpose"),
 
-h("label", { style: S.fieldLabel }, "MAP — MASSIVE ACTION PLAN"),
+h("label", { style: { ...S.fieldLabel, marginTop: 16 } }, "MAP — MASSIVE ACTION PLAN"),
 h("div", { style: S.fieldHint }, "The concrete actions that turn your Purpose into your Result."),
 h(MapItemList, { items: cat.items, color: cat.color, onUpdateItem: updateItem, onDeleteItem: deleteItem, onReorder: reorderItems }),
 h("button", { style: S.addItemBtn, onClick: addItem }, h(Icon, { path: PATHS.plus, size: 15, color: "#1F3864" }), " Add MAP item"),
@@ -916,6 +943,9 @@ emptyState: { display: "flex", flexDirection: "column", alignItems: "center", te
 emptyTitle: { fontSize: 15, fontWeight: 700, color: "#4B5563" },
 emptyBody: { fontSize: 13, maxWidth: 260 },
 fieldLabel: { fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 700, color: "#9AA3AF", letterSpacing: "0.08em", display: "block", marginBottom: 4, marginTop: 10 },
+goalBlock: { paddingBottom: 8, marginBottom: 4, borderBottom: "1px dashed #E4E7EC" },
+goalHeaderRow: { display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 4 },
+goalNumber: { fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 700, color: "#9AA3AF", letterSpacing: "0.08em" },
 fieldHint: { fontSize: 11.5, color: "#9AA3AF", lineHeight: 1.4, marginBottom: 6 },
 rpmIntroCard: { background: "#EEF2F8", border: "1px solid #D7E0EC", borderRadius: 14, padding: "14px 16px" },
 rpmIntroTitle: { fontSize: 13.5, fontWeight: 800, color: "#1F3864", marginBottom: 4 },
