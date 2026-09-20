@@ -117,8 +117,9 @@ return code;
 },
 pull: async (code) => {
 const { id, token } = decodeSyncCode(code);
-const res = await fetch("https://api.github.com/gists/" + id, {
+const res = await fetch("https://api.github.com/gists/" + id + "?_=" + Date.now(), {
 headers: { "Authorization": "token " + token, "Accept": "application/vnd.github+json" },
+cache: "no-store",
 });
 if (!res.ok) throw new Error("pull failed: " + res.status);
 const json = await res.json();
@@ -136,6 +137,7 @@ headers: {
 "Content-Type": "application/json",
 },
 body: JSON.stringify({ files: { [GIST_FILENAME]: { content: JSON.stringify(data) } } }),
+cache: "no-store",
 });
 if (!res.ok) throw new Error("push failed: " + res.status);
 },
